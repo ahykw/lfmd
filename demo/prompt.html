@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro" rel="stylesheet" type="text/css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Comparison</title>
+    <style>
+        body {
+            font-family: "Source Sans Pro";
+            font-size: 18px;
+            margin: 24px;
+            line-height: 1.5;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 38px;
+            margin-bottom: 8px;
+        }
+
+        h2 {
+            font-size: 30px;
+            margin-top: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .top-links {
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+
+        .top-links a {
+            color: #1d4ed8;
+            text-decoration: none;
+        }
+
+        .top-links a:hover {
+            text-decoration: underline;
+        }
+
+        .method-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 18px;
+        }
+
+        .method-card {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: #fafafa;
+            padding: 14px;
+        }
+
+        .method-name {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .media-wrap {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .media-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+
+        img, video {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            background: #000;
+        }
+
+        .missing {
+            color: #b91c1c;
+            font-size: 16px;
+            margin-top: 6px;
+        }
+
+        .muted {
+            color: #666;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-links">
+        <a href="../">&lt;- Back to Home</a>
+    </div>
+
+    <h1 id="prompt-title"></h1>
+
+    <div id="container" class="method-grid"></div>
+    <div id="error" class="muted"></div>
+
+    <script src="manifest-data.js"></script>
+    <script>
+        function getPromptId() {
+            const url = new URL(window.location.href);
+            return url.searchParams.get('prompt');
+        }
+
+        function createMediaBlock(title, src, kind) {
+            const wrap = document.createElement('div');
+            const label = document.createElement('div');
+            label.className = 'media-title';
+            label.textContent = title;
+            wrap.appendChild(label);
+
+            if (src) {
+                if (kind === 'image') {
+                    const img = document.createElement('img');
+                    img.src = encodeURI(src);
+                    img.alt = title;
+                    wrap.appendChild(img);
+                } else {
+                    const video = document.createElement('video');
+                    video.src = encodeURI(src);
+                    video.controls = true;
+                    video.loop = false;
+                    video.muted = true;
+                    video.playsInline = true;
+                    video.preload = 'metadata';
+                    wrap.appendChild(video);
+                }
+            } else {
+                const missing = document.createElement('div');
+                missing.className = 'missing';
+                missing.textContent = `${title} not found`;
+                wrap.appendChild(missing);
+            }
+            return wrap;
+        }
+
+        function renderPrompt(manifest, promptItem) {
+            const title = document.getElementById('prompt-title');
+            title.textContent = `Prompt: "${promptItem.text}"`;
+
+            const container = document.getElementById('container');
+            const methods = manifest.methods || [];
+
+            methods.forEach((methodObj) => {
+                // Support both old format (string) and new format (object with id/name)
+                const methodId = typeof methodObj === 'string' ? methodObj : methodObj.id;
+                const methodName = typeof methodObj === 'string' ? methodObj : methodObj.name;
+
+                const card = document.createElement('div');
+                card.className = 'method-card';
+
+                const methodNameEl = document.createElement('div');
+                methodNameEl.className = 'method-name';
+                methodNameEl.textContent = methodName;
+                card.appendChild(methodNameEl);
+
+                const mediaWrap = document.createElement('div');
+                mediaWrap.className = 'media-wrap';
+
+                const item = (promptItem.items || {})[methodId] || {};
+                // Support both jpg (new) and png (legacy)
+                const imageUrl = item.jpg || item.png;
+                mediaWrap.appendChild(createMediaBlock('Panorama', imageUrl, 'image'));
+                mediaWrap.appendChild(createMediaBlock('Perspective Video', item.mp4, 'video'));
+
+                card.appendChild(mediaWrap);
+                container.appendChild(card);
+            });
+        }
+
+        (function () {
+            const error = document.getElementById('error');
+            try {
+                const promptId = getPromptId();
+                if (!promptId) {
+                    throw new Error('Missing prompt query. Please open this page from the project page.');
+                }
+
+                const manifest = window.EMBEDDED_MANIFEST;
+                if (!manifest) {
+                    throw new Error('Failed to load manifest-data.js. Make sure it is in the same folder.');
+                }
+
+                const target = (manifest.prompts || []).find((p) => p.id === promptId);
+                if (!target) {
+                    throw new Error(`Specified prompt was not found: ${promptId}`);
+                }
+
+                renderPrompt(manifest, target);
+            } catch (e) {
+                error.textContent = e.message;
+            }
+        })();
+    </script>
+</body>
+</html>
